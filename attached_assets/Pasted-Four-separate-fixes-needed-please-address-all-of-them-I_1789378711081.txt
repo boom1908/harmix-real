@@ -1,0 +1,37 @@
+Four separate fixes needed, please address all of them. I'm attaching the Metrolist open-source project as a zip reference for fix #4 — its lyrics gap-detection logic is the one to replicate.
+
+=== 1. Trending feed is too narrow / low quality ===
+In metadata_engine.py, get_trending() calls _ytmusic.get_charts(country="IN"), which skews to one regional genre. Also, the current except block silently swallows any failure from get_charts() with no logging, then falls back to a raw keyword search for the literal phrase "trending music 2026" — which returns spam-titled compilation/mashup videos instead of real individual trending tracks (this is why the Home feed currently looks bad for guests/new users).
+
+Fix:
+- Change the chart source to the global chart: _ytmusic.get_charts(country="ZZ"), which represents worldwide YouTube Music charts, so the trending feed reflects a broad international mix.
+- Add actual error logging (e.g. print the exception) instead of silently swallowing it, so future chart failures are diagnosable.
+- Replace the raw-keyword-search fallback with something much better: if the charts call fails entirely, fall back to fetching a stable, official YouTube Music global "Top Songs" chart playlist by ID via get_playlist() (a real curated playlist of individual tracks), not a text search. Look up a suitable official YouTube Music global top-songs playlist ID to use for this fallback.
+
+=== 2. Resuming after the app is killed: play button does nothing + no resume position ===
+Currently in MainActivity.kt, onCreate() reads LastPlayedStore and only sets display-only UI state (title/artist/artwork/url) — it never actually loads that track into the MediaController. So after the app is killed and reopened, the mini player correctly SHOWS the last song, but tapping play does nothing, because the underlying player has zero media items loaded. Also, LastPlayedTrack only stores title/artist/artworkUrl/url — no playback position — so there's nothing to resume from even if it did load.
+
+Fix:
+- Add a positionMs field (and ideally durationMs) to LastPlayedTrack in LastPlayedStore.kt.
+- Update rememberLastPlayed() (and anywhere else LastPlayedTrack is saved) to include the current playback position. Also periodically persist the position during playback (e.g. throttled inside the existing position ticker, saving at most every ~5 seconds) and on Activity onStop(), so the resume point stays reasonably fresh even if the app is killed abruptly.
+- In attachPlayerListener()/syncControllerState(), when the MediaController connects and reports an EMPTY timeline (mediaItemCount == 0) AND there's a saved LastPlayedTrack, actually load that track into the player: build its MediaItem, call setMediaItem + prepare(), seek to the saved positionMs, but do NOT auto-play (playWhenReady = false / do not call play()) — just get it loaded and ready so tapping the existing play button works correctly and resumes from where it left off. Only do this when the timeline is genuinely empty (a real cold start), never overwrite an already-active playback session.
+
+=== 3. Screen doesn't stay on while Lyrics bottom sheet is open ===
+KeepScreenOn (in KeepScreenOn.kt) sets FLAG_KEEP_SCREEN_ON on (context as? Activity)?.window. This works fine on a normal screen, but LyricsBottomSheet is a ModalBottomSheet, which renders in its own separate platform Dialog window, not the Activity's window — so setting the flag on the Activity's window doesn't prevent the screen from timing out while the dialog window is the topmost/focused one.
+
+Fix: update KeepScreenOn to correctly detect when it's running inside a Dialog/ModalBottomSheet and set the flag on that window instead. In Compose, the dialog's window can be obtained via:
+val view = LocalView.current
+val dialogWindow = (view.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window
+Use dialogWindow if non-null, otherwise fall back to the Activity's window as before. This makes KeepScreenOn work correctly both on normal screens and inside bottom sheets/dialogs.
+
+=== 4. Instrumental gap indicator shows constantly, even between normal lines ===
+In LyricsBottomSheet.kt, buildLyricRows() computes the gap as (next line's start timestamp − current line's start timestamp). This is wrong: it doesn't account for how long the current line takes to actually sing, so a completely normal line that takes 5-8 seconds before the next line starts gets misidentified as an "instrumental gap," which is why it's showing after nearly every line in testing. Additionally, SyncedLyricsList currently does lines.filter { it.text.isNotBlank() } BEFORE gap computation, which discards real instrumental markers (blank-text timestamped lines that LRCLIB includes for actual instrumental sections) before they can be used.
+
+Fix, matching the attached Metrolist reference project's approach (see app/src/main/kotlin/com/metrolist/music/viewmodels/LyricsViewModel.kt, the updateMergedList function):
+- Do NOT filter out blank-text lines before computing gaps. Keep them in the working list used for gap detection.
+- Only treat a gap as real when it's bounded by an explicit blank-text timestamped line from the source lyrics data (i.e., the lyrics file's own instrumental marker) — use that blank line's timestamp as the gap start, and the next non-blank line's timestamp as the gap end. Never infer a gap purely from the time between two normal sung lines' start timestamps.
+- Keep the existing 4000ms (4 second) minimum threshold — only show the indicator if the resulting gap is greater than 4 seconds (Metrolist uses the same 4000L threshold, see line 108 of the referenced file).
+- If the lyrics source has no blank/instrumental markers at all, show no instrumental indicators for that song — this is correct behavior, not a bug, since there's no reliable way to know where singing actually ends without that marker.
+- The visual indicator (progress ring + "Instrumental · elapsed/duration" text) can stay exactly as currently implemented — only the logic that decides WHEN to show one needs to change.
+
+Please confirm each of the four fixes and flag anything simplified or deferred.
