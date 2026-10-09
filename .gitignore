@@ -1,7 +1,9 @@
 # Android / Gradle generated files
-android/.gradle/
-android/app/build/
-android/local.properties
+.gradle/
+build/
+app/build/
+local.properties
+*.hprof
 
 # Editor directories and files
 .vscode/*

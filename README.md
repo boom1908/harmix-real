@@ -25,12 +25,11 @@ A native Android music streaming app built with Kotlin and Jetpack Compose.
 ### Build debug APK
 
 ```bash
-cd android
 chmod +x ./gradlew
 ./gradlew assembleDebug
 ```
 
-The APK will be at `android/app/build/outputs/apk/debug/`.
+The APK will be at `app/build/outputs/apk/debug/`.
 
 ### CI
 
