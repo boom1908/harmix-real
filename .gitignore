@@ -40,4 +40,3 @@ android/local.properties
 .env
 .env.*
 !.env.example
-android/keystore/
