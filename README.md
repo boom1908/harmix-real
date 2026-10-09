@@ -1,24 +1,37 @@
-# Melody Maker Mobile
+# Harmix
 
-This is a music streaming platform that I am building. I thought I will completely built this but I am building this with only android phone that takes lot of time. So am planning that I will continue make this using lovable for my self only. First tell me what you see
+A native Android music streaming app built with Kotlin and Jetpack Compose.
 
-This project was built with [Lovable](https://lovable.dev).
+## Tech Stack
 
-## Build with Lovable
+- **Language**: Kotlin
+- **UI**: Jetpack Compose + Material 3
+- **Architecture**: MVVM with ViewModels
+- **DI**: Hilt (Dagger)
+- **Database**: Room (local) + Cloud Firestore (cloud sync)
+- **Playback**: Media3 / ExoPlayer
+- **Auth**: Google Sign-In via Firebase
+- **Streaming**: yt-dlp (via Chaquopy Python bridge)
+- **Build**: Gradle with KSP
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/24bd7dfe-f560-4560-9229-3a3024a0701b).
+## Building
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+### Prerequisites
 
-## Development
+- JDK 17
+- Android SDK
+- Python 3.12 (for Chaquopy)
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+### Build debug APK
 
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+```bash
+cd android
+chmod +x ./gradlew
+./gradlew assembleDebug
 ```
+
+The APK will be at `android/app/build/outputs/apk/debug/`.
+
+### CI
+
+Push to any branch triggers the GitHub Actions workflow (`.github/workflows/android-build.yml`) which builds a debug APK and uploads it as an artifact.
